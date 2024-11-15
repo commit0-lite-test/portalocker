@@ -1,7 +1,7 @@
 import typing
 
 
-class BaseLockException(Exception):
+class BaseLockError(Exception):
     LOCK_FAILED = 1
 
     def __init__(
@@ -11,10 +11,10 @@ class BaseLockException(Exception):
         **kwargs: typing.Any,
     ) -> None:
         self.fh = fh
-        Exception.__init__(self, *args)
+        super().__init__(*args)
 
 
-class LockException(BaseLockException):
+class LockException(BaseLockError):
     def __init__(
         self,
         *args: typing.Any,
