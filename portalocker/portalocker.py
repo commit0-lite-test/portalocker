@@ -72,13 +72,9 @@ elif os.name == "posix":
         try:
             fcntl.flock(file.fileno(), locking_flags)
         except OSError as exc_value:
-            if (
-                exc_value.errno == errno.EACCES
-                or exc_value.errno == errno.EAGAIN
-            ):
-                raise exceptions.LockException(fh=file)
-            else:
-                raise
+            if exc_value.errno in (errno.EACCES, errno.EAGAIN):
+                raise LockException(fh=file) from exc_value
+            raise
 
     def unlock(file):
         fcntl.flock(file.fileno(), fcntl.LOCK_UN)
