@@ -9,16 +9,19 @@ import tempfile
 import time
 import typing
 import warnings
+
 from . import constants, exceptions, portalocker
+
 logger = logging.getLogger(__name__)
 DEFAULT_TIMEOUT = 5
 DEFAULT_CHECK_INTERVAL = 0.25
 DEFAULT_FAIL_WHEN_LOCKED = False
 LOCK_METHOD = constants.LockFlags.EXCLUSIVE | constants.LockFlags.NON_BLOCKING
-__all__ = ['Lock', 'open_atomic']
+__all__ = ["Lock", "open_atomic"]
 Filename = typing.Union[str, pathlib.Path]
 
-def coalesce(*args: typing.Any, test_value: typing.Any=None) -> typing.Any:
+
+def coalesce(*args: typing.Any, test_value: typing.Any = None) -> typing.Any:
     """Simple coalescing function that returns the first value that is not
     equal to the `test_value`. Or `None` if no value is valid. Usually this
     means that the last given value is the default value.
@@ -45,8 +48,11 @@ def coalesce(*args: typing.Any, test_value: typing.Any=None) -> typing.Any:
             return arg
     return None
 
+
 @contextlib.contextmanager
-def open_atomic(filename: Filename, binary: bool=True) -> typing.Iterator[typing.IO]:
+def open_atomic(
+    filename: Filename, binary: bool = True
+) -> typing.Iterator[typing.IO]:
     """Open a file for atomic writing. Instead of locking this method allows
     you to write the entire file and move it to the actual location. Note that
     this makes the assumption that a rename is atomic on your platform which
@@ -73,7 +79,7 @@ def open_atomic(filename: Filename, binary: bool=True) -> typing.Iterator[typing
     """
     path = pathlib.Path(filename)
     temp_filename = f"{path}.tmp{os.getpid()}"
-    mode = 'wb' if binary else 'w'
+    mode = "wb" if binary else "w"
     try:
         with open(temp_filename, mode) as file:
             yield file
@@ -84,25 +90,39 @@ def open_atomic(filename: Filename, binary: bool=True) -> typing.Iterator[typing
         except OSError:
             pass
 
+
 class LockBase(abc.ABC):
     timeout: float
     check_interval: float
     fail_when_locked: bool
 
-    def __init__(self, timeout: typing.Optional[float]=None, check_interval: typing.Optional[float]=None, fail_when_locked: typing.Optional[bool]=None):
+    def __init__(
+        self,
+        timeout: typing.Optional[float] = None,
+        check_interval: typing.Optional[float] = None,
+        fail_when_locked: typing.Optional[bool] = None,
+    ):
         self.timeout = coalesce(timeout, DEFAULT_TIMEOUT)
         self.check_interval = coalesce(check_interval, DEFAULT_CHECK_INTERVAL)
-        self.fail_when_locked = coalesce(fail_when_locked, DEFAULT_FAIL_WHEN_LOCKED)
+        self.fail_when_locked = coalesce(
+            fail_when_locked, DEFAULT_FAIL_WHEN_LOCKED
+        )
 
     def __enter__(self) -> typing.IO[typing.AnyStr]:
         return self.acquire()
 
-    def __exit__(self, exc_type: typing.Optional[typing.Type[BaseException]], exc_value: typing.Optional[BaseException], traceback: typing.Any) -> typing.Optional[bool]:
+    def __exit__(
+        self,
+        exc_type: typing.Optional[typing.Type[BaseException]],
+        exc_value: typing.Optional[BaseException],
+        traceback: typing.Any,
+    ) -> typing.Optional[bool]:
         self.release()
         return None
 
     def __delete__(self, instance):
         instance.release()
+
 
 class Lock(LockBase):
     """Lock manager with built-in timeout
@@ -125,16 +145,27 @@ class Lock(LockBase):
     mode will result in truncate _BEFORE_ the lock is checked.
     """
 
-    def __init__(self, filename: Filename, mode: str='a', timeout: typing.Optional[float]=None, check_interval: float=DEFAULT_CHECK_INTERVAL, fail_when_locked: bool=DEFAULT_FAIL_WHEN_LOCKED, flags: constants.LockFlags=LOCK_METHOD, **file_open_kwargs):
-        if 'w' in mode:
+    def __init__(
+        self,
+        filename: Filename,
+        mode: str = "a",
+        timeout: typing.Optional[float] = None,
+        check_interval: float = DEFAULT_CHECK_INTERVAL,
+        fail_when_locked: bool = DEFAULT_FAIL_WHEN_LOCKED,
+        flags: constants.LockFlags = LOCK_METHOD,
+        **file_open_kwargs,
+    ):
+        if "w" in mode:
             truncate = True
-            mode = mode.replace('w', 'a')
+            mode = mode.replace("w", "a")
         else:
             truncate = False
         if timeout is None:
             timeout = DEFAULT_TIMEOUT
         elif not flags & constants.LockFlags.NON_BLOCKING:
-            warnings.warn('timeout has no effect in blocking mode', stacklevel=1)
+            warnings.warn(
+                "timeout has no effect in blocking mode", stacklevel=1
+            )
         self.fh: typing.Optional[typing.IO] = None
         self.filename: str = str(filename)
         self.mode: str = mode
@@ -145,7 +176,12 @@ class Lock(LockBase):
         self.flags: constants.LockFlags = flags
         self.file_open_kwargs = file_open_kwargs
 
-    def acquire(self, timeout: typing.Optional[float]=None, check_interval: typing.Optional[float]=None, fail_when_locked: typing.Optional[bool]=None) -> typing.IO[typing.AnyStr]:
+    def acquire(
+        self,
+        timeout: typing.Optional[float] = None,
+        check_interval: typing.Optional[float] = None,
+        fail_when_locked: typing.Optional[bool] = None,
+    ) -> typing.IO[typing.AnyStr]:
         """Acquire the locked filehandle"""
         if timeout is None:
             timeout = self.timeout
@@ -207,6 +243,7 @@ class Lock(LockBase):
             fh.truncate(0)
         return fh
 
+
 class RLock(Lock):
     """
     A reentrant lock, functions in a similar way to threading.RLock in that it
@@ -214,15 +251,41 @@ class RLock(Lock):
     calls are made the lock will finally release the underlying file lock.
     """
 
-    def __init__(self, filename, mode='a', timeout=DEFAULT_TIMEOUT, check_interval=DEFAULT_CHECK_INTERVAL, fail_when_locked=False, flags=LOCK_METHOD):
-        super().__init__(filename, mode, timeout, check_interval, fail_when_locked, flags)
+    def __init__(
+        self,
+        filename,
+        mode="a",
+        timeout=DEFAULT_TIMEOUT,
+        check_interval=DEFAULT_CHECK_INTERVAL,
+        fail_when_locked=False,
+        flags=LOCK_METHOD,
+    ):
+        super().__init__(
+            filename, mode, timeout, check_interval, fail_when_locked, flags
+        )
         self._acquire_count = 0
 
-class TemporaryFileLock(Lock):
 
-    def __init__(self, filename='.lock', timeout=DEFAULT_TIMEOUT, check_interval=DEFAULT_CHECK_INTERVAL, fail_when_locked=True, flags=LOCK_METHOD):
-        Lock.__init__(self, filename=filename, mode='w', timeout=timeout, check_interval=check_interval, fail_when_locked=fail_when_locked, flags=flags)
+class TemporaryFileLock(Lock):
+    def __init__(
+        self,
+        filename=".lock",
+        timeout=DEFAULT_TIMEOUT,
+        check_interval=DEFAULT_CHECK_INTERVAL,
+        fail_when_locked=True,
+        flags=LOCK_METHOD,
+    ):
+        Lock.__init__(
+            self,
+            filename=filename,
+            mode="w",
+            timeout=timeout,
+            check_interval=check_interval,
+            fail_when_locked=fail_when_locked,
+            flags=flags,
+        )
         atexit.register(self.release)
+
 
 class BoundedSemaphore(LockBase):
     """
@@ -239,17 +302,36 @@ class BoundedSemaphore(LockBase):
     >>> str(sorted(semaphore.get_random_filenames())[1])
     'bounded_semaphore.01.lock'
     """
+
     lock: typing.Optional[Lock]
 
-    def __init__(self, maximum: int, name: str='bounded_semaphore', filename_pattern: str='{name}.{number:02d}.lock', directory: str=tempfile.gettempdir(), timeout: typing.Optional[float]=DEFAULT_TIMEOUT, check_interval: typing.Optional[float]=DEFAULT_CHECK_INTERVAL, fail_when_locked: typing.Optional[bool]=True):
+    def __init__(
+        self,
+        maximum: int,
+        name: str = "bounded_semaphore",
+        filename_pattern: str = "{name}.{number:02d}.lock",
+        directory: str = tempfile.gettempdir(),
+        timeout: typing.Optional[float] = DEFAULT_TIMEOUT,
+        check_interval: typing.Optional[float] = DEFAULT_CHECK_INTERVAL,
+        fail_when_locked: typing.Optional[bool] = True,
+    ):
         self.maximum = maximum
         self.name = name
         self.filename_pattern = filename_pattern
         self.directory = directory
         self.lock: typing.Optional[Lock] = None
-        super().__init__(timeout=timeout, check_interval=check_interval, fail_when_locked=fail_when_locked)
-        if not name or name == 'bounded_semaphore':
-            warnings.warn('`BoundedSemaphore` without an explicit `name` argument is deprecated, use NamedBoundedSemaphore', DeprecationWarning, stacklevel=1)
+        super().__init__(
+            timeout=timeout,
+            check_interval=check_interval,
+            fail_when_locked=fail_when_locked,
+        )
+        if not name or name == "bounded_semaphore":
+            warnings.warn(
+                "`BoundedSemaphore` without an explicit `name` argument is deprecated, use NamedBoundedSemaphore",
+                DeprecationWarning,
+                stacklevel=1,
+            )
+
 
 class NamedBoundedSemaphore(BoundedSemaphore):
     """
@@ -276,7 +358,24 @@ class NamedBoundedSemaphore(BoundedSemaphore):
 
     """
 
-    def __init__(self, maximum: int, name: typing.Optional[str]=None, filename_pattern: str='{name}.{number:02d}.lock', directory: str=tempfile.gettempdir(), timeout: typing.Optional[float]=DEFAULT_TIMEOUT, check_interval: typing.Optional[float]=DEFAULT_CHECK_INTERVAL, fail_when_locked: typing.Optional[bool]=True):
+    def __init__(
+        self,
+        maximum: int,
+        name: typing.Optional[str] = None,
+        filename_pattern: str = "{name}.{number:02d}.lock",
+        directory: str = tempfile.gettempdir(),
+        timeout: typing.Optional[float] = DEFAULT_TIMEOUT,
+        check_interval: typing.Optional[float] = DEFAULT_CHECK_INTERVAL,
+        fail_when_locked: typing.Optional[bool] = True,
+    ):
         if name is None:
-            name = 'bounded_semaphore.%d' % random.randint(0, 1000000)
-        super().__init__(maximum, name, filename_pattern, directory, timeout, check_interval, fail_when_locked)
+            name = "bounded_semaphore.%d" % random.randint(0, 1000000)
+        super().__init__(
+            maximum,
+            name,
+            filename_pattern,
+            directory,
+            timeout,
+            check_interval,
+            fail_when_locked,
+        )
