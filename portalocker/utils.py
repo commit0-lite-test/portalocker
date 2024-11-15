@@ -9,6 +9,7 @@ import tempfile
 import time
 import typing
 import warnings
+from contextlib import suppress
 
 from . import constants, exceptions, portalocker
 
@@ -85,16 +86,22 @@ def open_atomic(
             yield file
         os.rename(temp_filename, path)
     finally:
-        try:
+        with suppress(OSError):
             os.unlink(temp_filename)
-        except OSError:
-            pass
 
 
 class LockBase(abc.ABC):
     timeout: float
     check_interval: float
     fail_when_locked: bool
+
+    @abc.abstractmethod
+    def acquire(self) -> typing.IO[typing.AnyStr]:
+        pass
+
+    @abc.abstractmethod
+    def release(self) -> None:
+        pass
 
     def __init__(
         self,
@@ -202,7 +209,7 @@ class Lock(LockBase):
                 if fail_when_locked:
                     raise
                 if timeout is not None and time.time() - start_time > timeout:
-                    raise exceptions.LockException(exception)
+                    raise exceptions.LockException(exception) from exception
                 time.sleep(check_interval)
 
     def __enter__(self) -> typing.IO[typing.AnyStr]:
