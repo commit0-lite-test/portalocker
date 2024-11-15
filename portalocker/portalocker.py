@@ -2,7 +2,7 @@ import os
 import typing
 
 from . import constants
-from .exceptions import LockException
+from .exceptions import LockException, HasFileno
 
 LockFlags = constants.LockFlags
 
@@ -59,7 +59,10 @@ elif os.name == "posix":
     import errno
     import fcntl
 
-    LOCKER = fcntl.flock
+    LOCKER = typing.cast(
+        typing.Callable[[typing.Union[int, HasFileno], int], None],
+        fcntl.flock
+    )
 
     def lock(file, flags):
         locking_flags = (
