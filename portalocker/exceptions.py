@@ -25,7 +25,7 @@ class LockError(BaseLockError):
         self.message = "Failed to acquire lock"
 
 
-class AlreadyLocked(LockError):
+class AlreadyLockedError(LockError):
     def __init__(
         self,
         *args: typing.Any,
@@ -36,7 +36,7 @@ class AlreadyLocked(LockError):
         self.message = "File is already locked"
 
 
-class FileToLarge(LockError):
+class FileToLargeError(LockError):
     def __init__(
         self,
         *args: typing.Any,
