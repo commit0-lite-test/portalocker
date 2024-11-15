@@ -1,19 +1,28 @@
 import os
 import typing
+
 from . import constants, exceptions
+
 LockFlags = constants.LockFlags
 
-__all__ = ['lock', 'unlock']
+__all__ = ["lock", "unlock"]
+
 
 class HasFileno(typing.Protocol):
     pass
-LOCKER: typing.Optional[typing.Callable[[typing.Union[int, HasFileno], int], typing.Any]] = None
-if os.name == 'nt':
+
+
+LOCKER: typing.Optional[
+    typing.Callable[[typing.Union[int, HasFileno], int], typing.Any]
+] = None
+if os.name == "nt":
     import msvcrt
+
     import pywintypes
     import win32con
     import win32file
     import winerror
+
     __overlapped = pywintypes.OVERLAPPED()
 
     def lock(file, flags):
@@ -24,7 +33,7 @@ if os.name == 'nt':
 
         if flags & constants.LockFlags.NON_BLOCKING:
             lock_type |= win32con.LOCKFILE_FAIL_IMMEDIATELY
-        
+
         hfile = msvcrt.get_osfhandle(file.fileno())
         try:
             win32file.LockFileEx(hfile, lock_type, 0, -0x10000, __overlapped)
@@ -45,19 +54,27 @@ if os.name == 'nt':
             else:
                 raise
 
-elif os.name == 'posix':
+elif os.name == "posix":
     import errno
     import fcntl
+
     LOCKER = fcntl.flock
 
     def lock(file, flags):
-        locking_flags = fcntl.LOCK_EX if flags & constants.LockFlags.EXCLUSIVE else fcntl.LOCK_SH
+        locking_flags = (
+            fcntl.LOCK_EX
+            if flags & constants.LockFlags.EXCLUSIVE
+            else fcntl.LOCK_SH
+        )
         if flags & constants.LockFlags.NON_BLOCKING:
             locking_flags |= fcntl.LOCK_NB
         try:
             fcntl.flock(file.fileno(), locking_flags)
-        except IOError as exc_value:
-            if exc_value.errno == errno.EACCES or exc_value.errno == errno.EAGAIN:
+        except OSError as exc_value:
+            if (
+                exc_value.errno == errno.EACCES
+                or exc_value.errno == errno.EAGAIN
+            ):
                 raise exceptions.LockException(fh=file)
             else:
                 raise
@@ -66,4 +83,4 @@ elif os.name == 'posix':
         fcntl.flock(file.fileno(), fcntl.LOCK_UN)
 
 else:
-    raise RuntimeError('PortaLocker only defined for nt and posix platforms')
+    raise RuntimeError("PortaLocker only defined for nt and posix platforms")
