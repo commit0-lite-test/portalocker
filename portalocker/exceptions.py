@@ -8,10 +8,16 @@ class BaseLockException(Exception):
         Exception.__init__(self, *args)
 
 class LockException(BaseLockException):
-    pass
+    def __init__(self, *args: typing.Any, fh: typing.Union[typing.IO, None, int]=None, **kwargs: typing.Any) -> None:
+        super().__init__(*args, fh=fh, **kwargs)
+        self.message = "Failed to acquire lock"
 
 class AlreadyLocked(LockException):
-    pass
+    def __init__(self, *args: typing.Any, fh: typing.Union[typing.IO, None, int]=None, **kwargs: typing.Any) -> None:
+        super().__init__(*args, fh=fh, **kwargs)
+        self.message = "File is already locked"
 
 class FileToLarge(LockException):
-    pass
+    def __init__(self, *args: typing.Any, fh: typing.Union[typing.IO, None, int]=None, **kwargs: typing.Any) -> None:
+        super().__init__(*args, fh=fh, **kwargs)
+        self.message = "File is too large to lock"
