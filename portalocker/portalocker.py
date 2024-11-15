@@ -1,7 +1,8 @@
 import os
 import typing
 
-from . import constants, exceptions
+from . import constants
+from .exceptions import LockException
 
 LockFlags = constants.LockFlags
 
@@ -13,7 +14,7 @@ class HasFileno(typing.Protocol):
 
 
 LOCKER: typing.Optional[
-    typing.Callable[[typing.Union[int, HasFileno], int], typing.Any]
+    typing.Callable[[typing.Union[int, HasFileno], int], None]
 ] = None
 if os.name == "nt":
     import msvcrt
@@ -39,7 +40,7 @@ if os.name == "nt":
             win32file.LockFileEx(hfile, lock_type, 0, -0x10000, __overlapped)
         except pywintypes.error as exc_value:
             if exc_value.winerror == winerror.ERROR_LOCK_VIOLATION:
-                raise exceptions.LockException(fh=file)
+                raise LockException(fh=file) from exc_value
             else:
                 raise
 
