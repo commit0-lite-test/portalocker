@@ -2,7 +2,7 @@ import os
 import typing
 
 from . import constants
-from .exceptions import HasFileno, LockException
+from .exceptions import LockException
 
 LockFlags = constants.LockFlags
 
