@@ -1,18 +1,12 @@
 import os
 import typing
 
-class HasFileno(typing.Protocol):
-    def fileno(self) -> int:
-        ...
+from . import constants
+from .exceptions import HasFileno, LockException
 
-class BaseLockError(Exception):
-    LOCK_FAILED = 1
+LockFlags = constants.LockFlags
 
-    def __init__(
-        self,
-        *args: typing.Any,
-        fh: typing.Union[typing.IO, None, int] = None,
-        **kwargs: typing.Any,
+__all__ = ["lock", "unlock"]
 
 
 LOCKER: typing.Optional[
